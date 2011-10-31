@@ -1,0 +1,6 @@
+This stable 1.01 release fixes a bug in the
+hash based implementation.  The hashed tables for
+this release are NOT compatible with those of older
+releases.
+
+
