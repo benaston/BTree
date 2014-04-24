@@ -107,7 +107,7 @@ namespace BplusDotNet
 			}
 			return s.Substring(0, prefixcharcount);
 		}
-		public bool FindBucketForPrefix(string key, out xBucket bucket, out string prefix, bool keyIsPrefix) 
+        public bool FindBucketForPrefix(string key, out xBucket bucket, out string prefix, bool keyIsPrefix, bool caseSensitive) 
 		{
 			bucket = null;
 			prefix = key;
@@ -115,7 +115,7 @@ namespace BplusDotNet
 			{
 				prefix = PrefixForByteCount(key, this.prefixLength);
 			}
-			object datathing = this.tree.Get(prefix, "");
+			object datathing = this.tree.Get(prefix, "", caseSensitive);
 			if (datathing is byte[]) 
 			{
 				byte[] databytes = (byte[]) datathing;
@@ -133,10 +133,10 @@ namespace BplusDotNet
 		
 		#region ITreeIndex Members
 
-		
-		public int Compare(string left, string right) 
+
+        public int Compare(string left, string right, bool caseSensitive) 
 		{
-			return this.tree.Compare(left, right);
+			return this.tree.Compare(left, right, caseSensitive);
 		}
 
 		public void Recover(bool CorrectErrors)
@@ -148,7 +148,7 @@ namespace BplusDotNet
 		{
 			xBucket bucket;
 			string prefix;
-			bool found = FindBucketForPrefix(key, out bucket, out prefix, false);
+			bool found = FindBucketForPrefix(key, out bucket, out prefix, false, true);
 			if (!found) 
 			{
 				throw new BplusTreeKeyMissing("no such key to delete");
@@ -173,7 +173,7 @@ namespace BplusDotNet
 				return null;
 			}
 			string dummyprefix;
-			bool found = FindBucketForPrefix(prefix, out bucket, out dummyprefix, true);
+			bool found = FindBucketForPrefix(prefix, out bucket, out dummyprefix, true, true);
 			if (!found) 
 			{
 				throw new BplusTreeException("internal tree gave bad first key");
@@ -181,22 +181,22 @@ namespace BplusDotNet
 			return bucket.FirstKey();
 		}
 
-		public string NextKey(string AfterThisKey)
+        public string NextKey(string AfterThisKey, bool caseSensitive)
 		{
 			xBucket bucket;
 			string prefix;
 			string result = null;
-			bool found = FindBucketForPrefix(AfterThisKey, out bucket, out prefix, false);
+			bool found = FindBucketForPrefix(AfterThisKey, out bucket, out prefix, false, caseSensitive);
 			if (found) 
 			{
-				result = bucket.NextKey(AfterThisKey);
+				result = bucket.NextKey(AfterThisKey, caseSensitive);
 				if (result!=null) 
 				{
 					return result;
 				}
 			}
 			// otherwise look in the next bucket
-			string nextprefix = this.tree.NextKey(prefix);
+			string nextprefix = this.tree.NextKey(prefix, caseSensitive);
 			if (nextprefix==null) 
 			{
 				return null;
@@ -211,30 +211,30 @@ namespace BplusDotNet
 			return bucket.FirstKey();
 		}
 
-		public bool ContainsKey(string key)
+        public bool ContainsKey(string key, bool caseSensitive)
 		{
 			xBucket bucket;
 			string prefix;
-			bool found = FindBucketForPrefix(key, out bucket, out prefix, false);
+			bool found = FindBucketForPrefix(key, out bucket, out prefix, false, caseSensitive);
 			if (!found) 
 			{
 				return false;
 			}
 			byte[] map;
-			return bucket.Find(key, out map);
+			return bucket.Find(key, out map, caseSensitive);
 		}
 
-		public object Get(string key, object defaultValue)
+        public object Get(string key, object defaultValue, bool caseSensitive)
 		{
 			xBucket bucket;
 			string prefix;
-			bool found = FindBucketForPrefix(key, out bucket, out prefix, false);
+			bool found = FindBucketForPrefix(key, out bucket, out prefix, false, caseSensitive);
 			if (!found) 
 			{
 				return defaultValue;
 			}
 			byte[] map;
-			found = bucket.Find(key, out map);
+			found = bucket.Find(key, out map, caseSensitive);
 			if (found) 
 			{
 				return map;
@@ -247,7 +247,7 @@ namespace BplusDotNet
 			
 			xBucket bucket;
 			string prefix;
-			bool found = FindBucketForPrefix(key, out bucket, out prefix, false);
+			bool found = FindBucketForPrefix(key, out bucket, out prefix, false, true);
 			if (!found) 
 			{
 				bucket = new xBucket(this);
@@ -259,16 +259,19 @@ namespace BplusDotNet
 			bucket.Add(key, (byte[]) map);
 			this.tree[prefix] = bucket.dump();
 		}
+        public byte[] MyGetKey(string key, bool caseSensitive) {
+            object test = this.Get(key, "", caseSensitive);
+            if (test is byte[]) {
+                return (byte[])test;
+            }
+            throw new BplusTreeKeyMissing("no such key in tree");
+        }
+
 		public byte[] this[string key] 
 		{
 			get 
 			{
-				object test = this.Get(key, "");
-				if (test is byte[]) 
-				{
-					return (byte[]) test;
-				}
-				throw new BplusTreeKeyMissing("no such key in tree");
+                return MyGetKey(key, true);
 			} 
 			set 
 			{
@@ -393,7 +396,7 @@ namespace BplusDotNet
 			while (index<this.keys.Count) 
 			{
 				string thiskey = (string) this.keys[index];
-				int comparison = this.owner.Compare(thiskey, key);
+				int comparison = this.owner.Compare(thiskey, key, true);
 				if (comparison==0) 
 				{
 					this.values[index] = map;
@@ -425,7 +428,7 @@ namespace BplusDotNet
 			while (index<this.keys.Count) 
 			{
 				string thiskey = (string) this.keys[index];
-				if (this.owner.Compare(thiskey, key)==0) 
+				if (this.owner.Compare(thiskey, key, true)==0) 
 				{
 					this.values.RemoveAt(index);
 					this.keys.RemoveAt(index);
@@ -435,14 +438,14 @@ namespace BplusDotNet
 			}
 			throw new BplusTreeBadKeyValue("cannot remove missing key: "+key);
 		}
-		public bool Find(string key, out byte[] map) 
+        public bool Find(string key, out byte[] map, bool caseSensitive) 
 		{
 			map = null;
 			int index = 0;
 			while (index<this.keys.Count) 
 			{
 				string thiskey = (string) this.keys[index];
-				if (this.owner.Compare(thiskey, key)==0) 
+				if (this.owner.Compare(thiskey, key, caseSensitive)==0) 
 				{
 					map = (byte[]) this.values[index];
 					return true;
@@ -459,13 +462,13 @@ namespace BplusDotNet
 			}
 			return (string) this.keys[0];
 		}
-		public string NextKey(string AfterThisKey) 
+        public string NextKey(string AfterThisKey, bool caseSensitive) 
 		{
 			int index = 0;
 			while (index<this.keys.Count) 
 			{
 				string thiskey = (string) this.keys[index];
-				if (this.owner.Compare(thiskey, AfterThisKey)>0) 
+				if (this.owner.Compare(thiskey, AfterThisKey, caseSensitive)>0) 
 				{
 					return thiskey;
 				}

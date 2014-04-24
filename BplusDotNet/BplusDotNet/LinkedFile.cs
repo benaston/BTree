@@ -56,6 +56,7 @@ namespace BplusDotNet
 			// check prefix
 			foreach (byte b in HEADERPREFIX) 
 			{
+                Console.WriteLine("linkedfile: {0} == {1}", header[index], b);
 				if (header[index]!=b) 
 				{
 					throw new LinkedFileException("invalid header prefix");

@@ -98,10 +98,10 @@ namespace BplusDotNet
 		}
 		#region ITreeIndex Members
 
-		
-		public int Compare(string left, string right) 
+
+        public int Compare(string left, string right, bool caseSensitive) 
 		{
-			return this.tree.Compare(left, right);
+			return this.tree.Compare(left, right, caseSensitive);
 		}
 		public void Shutdown()
 		{
@@ -123,7 +123,7 @@ namespace BplusDotNet
 						+key+"' and '"+ChunksInUse[buffernumber]+"'");
 				}
 				ChunksInUse[buffernumber] = key;
-				key = this.tree.NextKey(key);
+				key = this.tree.NextKey(key, true);
 			}
 			// also consider the un-deallocated chunks to be in use
 			foreach (DictionaryEntry thing in this.FreeChunksOnCommit) 
@@ -158,20 +158,20 @@ namespace BplusDotNet
 			return this.tree.FirstKey();
 		}
 
-		public string NextKey(string AfterThisKey)
+        public string NextKey(string AfterThisKey, bool caseSensitive)
 		{
-			return this.tree.NextKey(AfterThisKey);
+			return this.tree.NextKey(AfterThisKey, caseSensitive);
 		}
 
-		public bool ContainsKey(string key)
+        public bool ContainsKey(string key, bool caseSensitive)
 		{
-			return this.tree.ContainsKey(key);
+			return this.tree.ContainsKey(key, caseSensitive);
 		}
 
-		public object Get(string key, object defaultValue)
+        public object Get(string key, object defaultValue, bool caseSensitive)
 		{
 			long map;
-			if (this.tree.ContainsKey(key, out map)) 
+			if (this.tree.ContainsKey(key, out map ,caseSensitive)) 
 			{
 				return (object) this.archive.GetChunk(map);
 			}
@@ -187,6 +187,12 @@ namespace BplusDotNet
 			byte[] thebytes = (byte[]) map;
 			this[key] = thebytes;
 		}
+
+        public byte[] MyGetKey(string key, bool caseSensitive) {
+            long map = this.tree.MyGetKey(key, caseSensitive);
+            return this.archive.GetChunk(map);
+        }
+
 		public byte[] this[string key] 
 		{
 			set 
@@ -195,7 +201,7 @@ namespace BplusDotNet
 				//this.FreeChunksOnAbort.Add(storage);
 				this.FreeChunksOnAbort[storage] = storage;
 				long valueFound;
-				if (this.tree.ContainsKey(key, out valueFound)) 
+				if (this.tree.ContainsKey(key, out valueFound, true)) 
 				{
 					//this.archive.ReleaseBuffers(valueFound);
 					if (this.FreeChunksOnAbort.ContainsKey(valueFound)) 
@@ -214,8 +220,7 @@ namespace BplusDotNet
 			}
 			get 
 			{
-				long map = this.tree[key];
-				return this.archive.GetChunk(map);
+                return MyGetKey(key, true);
 			}
 		}
 
