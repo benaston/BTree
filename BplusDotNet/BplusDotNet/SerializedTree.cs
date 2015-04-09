@@ -17,14 +17,18 @@ namespace BplusDotNet
 		}
 		#region IObjectTree Members
 
+        public object MyGetKey(string key, bool caseSensitive) {
+            byte[] bytes = this.tree.MyGetKey(key, caseSensitive);
+            System.IO.Stream bstream = new System.IO.MemoryStream(bytes);
+            object result = formatter.Deserialize(bstream);
+            return result;
+        }
+
 		public object this[string key]
 		{
 			get
 			{
-				byte[] bytes = this.tree[key];
-				System.IO.Stream bstream = new System.IO.MemoryStream(bytes);
-				object result = formatter.Deserialize(bstream);
-				return result;
+                return MyGetKey(key, true);
 			}
 			set
 			{
@@ -54,21 +58,22 @@ namespace BplusDotNet
 			return this.tree.FirstKey();
 		}
 
-		public string NextKey(string AfterThisKey)
+        public string NextKey(string AfterThisKey, bool caseSensitive)
 		{
-			return this.tree.NextKey(AfterThisKey);
+			return this.tree.NextKey(AfterThisKey, caseSensitive);
 		}
 
-		public bool ContainsKey(string key)
+        public bool ContainsKey(string key, bool caseSensitive)
 		{
-			return this.tree.ContainsKey(key);
+			return this.tree.ContainsKey(key, caseSensitive);
 		}
 
-		public object Get(string key, object defaultValue)
+        public object Get(string key, object defaultValue, bool caseSensitive)
 		{
-			if (this.tree.ContainsKey(key)) 
+			if (this.tree.ContainsKey(key, caseSensitive)) 
 			{
-				return this[key];
+                return MyGetKey(key, caseSensitive);
+                //return this[key];                
 			}
 			return defaultValue;
 		}
@@ -98,9 +103,9 @@ namespace BplusDotNet
 			this.tree.Shutdown();
 		}
 
-		public int Compare(string left, string right)
+        public int Compare(string left, string right, bool caseSensitive)
 		{
-			return this.tree.Compare(left, right);
+			return this.tree.Compare(left, right, caseSensitive);
 		}
 
 		#endregion

@@ -70,8 +70,12 @@ namespace BplusDotNet
 			this.fromfile.Flush();
 			this.fromfile.Close();
 		}
-		public int Compare(string left, string right) 
+        public int Compare(string left, string right, bool caseSensitive) 
 		{
+            if (!caseSensitive) {
+                left = left.ToLower();
+                right = right.ToLower();
+            }
 			//System.Globalization.CompareInfo cmp = this.cultureContext.CompareInfo;
 			if (this.cultureContext==null || this.DontUseCulture) 
 			{
@@ -355,17 +359,20 @@ namespace BplusDotNet
 				theroot.Free();
 			}
 		}
+        public long MyGetKey(string key, bool caseSensitive) {
+            long valueFound;
+            bool test = this.ContainsKey(key, out valueFound, caseSensitive);
+            if (!test) {
+                throw new BplusTreeKeyMissing("no such key found: " + key);
+            }
+            return valueFound;
+        }
+
 		public long this[string key] 
 		{
 			get 
 			{
-				long valueFound;
-				bool test = this.ContainsKey(key, out valueFound);
-				if (!test) 
-				{
-					throw new BplusTreeKeyMissing("no such key found: "+key);
-				}
-				return valueFound;
+                return MyGetKey(key, true);
 			}
 			set 
 			{
@@ -406,34 +413,34 @@ namespace BplusDotNet
 			if (this.root!=null) 
 			{
 				// empty string is smallest possible tree
-				if (this.ContainsKey("")) 
+				if (this.ContainsKey("", true)) 
 				{
 					result = "";
 				} 
 				else 
 				{
-					return this.root.FindNextKey("");
+					return this.root.FindNextKey("", true);
 				}
 				this.ShrinkFootprint();
 			}
 			return result;
 		}
-		public string NextKey(string AfterThisKey) 
+        public string NextKey(string AfterThisKey, bool caseSensitive) 
 		{
 			if (AfterThisKey==null) 
 			{
 				throw new BplusTreeBadKeyValue("cannot search for null string");
 			}
-			string result = this.root.FindNextKey(AfterThisKey);
+			string result = this.root.FindNextKey(AfterThisKey, caseSensitive);
 			this.ShrinkFootprint();
 			return result;
 		}
-		public bool ContainsKey(string key) 
+        public bool ContainsKey(string key, bool caseSensitive) 
 		{
 			long valueFound;
-			return this.ContainsKey(key, out valueFound);
-		} 
-		public bool ContainsKey(string key, out long valueFound) 
+			return this.ContainsKey(key, out valueFound, caseSensitive);
+		}
+        public bool ContainsKey(string key, out long valueFound, bool caseSensitive) 
 		{
 			if (key==null)
 			{
@@ -443,16 +450,16 @@ namespace BplusDotNet
 			valueFound = (long) 0;
 			if (this.root!=null) 
 			{
-				result = this.root.FindMatch(key, out valueFound);
+				result = this.root.FindMatch(key, out valueFound, caseSensitive);
 			}
 			this.ShrinkFootprint();
 			return result;
 		}
-		public long Get(string key, long defaultValue) 
+        public long Get(string key, long defaultValue, bool caseSensitive) 
 		{
 			long result = defaultValue;
 			long valueFound;
-			if (this.ContainsKey(key, out valueFound))
+			if (this.ContainsKey(key, out valueFound, caseSensitive))
 			{
 				result = valueFound;
 			}
@@ -466,10 +473,10 @@ namespace BplusDotNet
 			}
 			this[key] = (long) map;
 		}
-		public object Get(string key, object defaultValue) 
+        public object Get(string key, object defaultValue, bool caseSensitive) 
 		{
 			long valueFound;
-			if (this.ContainsKey(key, out valueFound)) 
+			if (this.ContainsKey(key, out valueFound, caseSensitive)) 
 			{
 				return (object) valueFound;
 			}
@@ -671,6 +678,7 @@ namespace BplusDotNet
 			// check prefix
 			foreach (byte b in HEADERPREFIX) 
 			{
+                Console.WriteLine("bplustreelong: {0} == {1}", header[index], b);
 				if (header[index]!=b) 
 				{
 					throw new BufferFileException("invalid header prefix");
@@ -1009,7 +1017,7 @@ namespace BplusDotNet
 		/// <param name="CompareKey">CompareKey</param>
 		/// <param name="LookPastOnly">if true and this is a leaf then look for a greater value</param>
 		/// <returns>lowest index of same or greater key or this.Size if no greater key.</returns>
-		int FindAtOrNextPosition(string CompareKey, bool LookPastOnly) 
+        int FindAtOrNextPosition(string CompareKey, bool LookPastOnly, bool caseSensitive) 
 		{
 			int insertposition = 0;
 			//System.Globalization.CultureInfo culture = this.owner.cultureContext;
@@ -1019,7 +1027,7 @@ namespace BplusDotNet
 				// look for exact match or greater or null
 				while (insertposition<this.Size && this.ChildKeys[insertposition]!=null &&
 					//cmp.Compare(this.ChildKeys[insertposition], CompareKey)<0) 
-					this.owner.Compare(this.ChildKeys[insertposition], CompareKey)<0)
+					this.owner.Compare(this.ChildKeys[insertposition], CompareKey, caseSensitive)<0)
 				{
 					insertposition++;
 				}
@@ -1028,7 +1036,7 @@ namespace BplusDotNet
 			{
 				// look for greater or null only
 				while (insertposition<this.Size && this.ChildKeys[insertposition]!=null &&
-					this.owner.Compare(this.ChildKeys[insertposition], CompareKey)<=0) 
+					this.owner.Compare(this.ChildKeys[insertposition], CompareKey, caseSensitive)<=0) 
 				{
 					insertposition++;
 				}
@@ -1086,15 +1094,15 @@ namespace BplusDotNet
 				}
 			}
 		}
-		public bool FindMatch(string CompareKey, out long ValueFound) 
+        public bool FindMatch(string CompareKey, out long ValueFound, bool caseSensitive) 
 		{
 			ValueFound = 0; // dummy value on failure
 			BplusNode leaf;
-			int position = this.FindAtOrNextPositionInLeaf(CompareKey, out leaf, false);
+			int position = this.FindAtOrNextPositionInLeaf(CompareKey, out leaf, false, caseSensitive);
 			if (position<leaf.Size) 
 			{
 				string key = leaf.ChildKeys[position];
-				if ((key!=null) && this.owner.Compare(key, CompareKey)==0) //(key.Equals(CompareKey)
+				if ((key!=null) && this.owner.Compare(key, CompareKey, caseSensitive)==0) //(key.Equals(CompareKey)
 				{
 					ValueFound = leaf.ChildBufferNumbers[position];
 					return true;
@@ -1102,11 +1110,11 @@ namespace BplusDotNet
 			}
 			return false;
 		}
-		public string FindNextKey(string CompareKey) 
+        public string FindNextKey(string CompareKey, bool caseSensitive) 
 		{
 			string result = null;
 			BplusNode leaf;
-			int position = this.FindAtOrNextPositionInLeaf(CompareKey, out leaf, true);
+			int position = this.FindAtOrNextPositionInLeaf(CompareKey, out leaf, true, caseSensitive);
 			if (position>=leaf.Size || leaf.ChildKeys[position]==null) 
 			{
 				// try to traverse to the right.
@@ -1126,9 +1134,9 @@ namespace BplusDotNet
 		/// <param name="inLeaf">the leaf where found</param>
 		/// <param name="LookPastOnly">If true then only look for a greater value, not an exact match.</param>
 		/// <returns>index of match in leaf</returns>
-		int FindAtOrNextPositionInLeaf(string CompareKey, out BplusNode inLeaf, bool LookPastOnly) 
+        int FindAtOrNextPositionInLeaf(string CompareKey, out BplusNode inLeaf, bool LookPastOnly, bool caseSensitive) 
 		{
-			int myposition = this.FindAtOrNextPosition(CompareKey, LookPastOnly);
+			int myposition = this.FindAtOrNextPosition(CompareKey, LookPastOnly, caseSensitive);
 			if (this.isLeaf) 
 			{
 				inLeaf = this;
@@ -1140,7 +1148,7 @@ namespace BplusDotNet
 				throw new BplusTreeException("can't search null subtree");
 			}
 			BplusNode child = this.MaterializeNodeAtIndex(myposition);
-			return child.FindAtOrNextPositionInLeaf(CompareKey, out inLeaf, LookPastOnly);
+			return child.FindAtOrNextPositionInLeaf(CompareKey, out inLeaf, LookPastOnly, caseSensitive);
 		}
 		BplusNode MaterializeNodeAtIndex(int myposition) 
 		{
@@ -1252,7 +1260,7 @@ namespace BplusDotNet
 			{
 				return this.DeleteLeaf(key, out MergeMe);
 			}
-			int deleteposition = this.FindAtOrNextPosition(key, false);
+			int deleteposition = this.FindAtOrNextPosition(key, false, true);
 			long deleteBufferNumber = this.ChildBufferNumbers[deleteposition];
 			if (deleteBufferNumber==BplusTreeLong.NULLBUFFERNUMBER) 
 			{
@@ -1265,7 +1273,7 @@ namespace BplusDotNet
 			// delete succeeded... now fix up the child node if needed.
 			this.Soil(); // redundant ?
 			// bizarre special case for 2-3  or 3-4 trees -- empty leaf
-			if (delresult!=null && this.owner.Compare(delresult, key)==0) // delresult.Equals(key)
+			if (delresult!=null && this.owner.Compare(delresult, key, true)==0) // delresult.Equals(key)
 			{
 				if (this.Size>3) 
 				{
@@ -1284,7 +1292,7 @@ namespace BplusDotNet
 				{
 					this.ChildKeys[deleteposition-1] = this.ChildKeys[deleteposition];
 				}
-				if (result!=null && this.owner.Compare(result, key)==0) // result.Equals(key)
+				if (result!=null && this.owner.Compare(result, key, true)==0) // result.Equals(key)
 				{
 					// I'm not sure this ever happens
 					this.MaterializeNodeAtIndex(1);
@@ -1317,7 +1325,7 @@ namespace BplusDotNet
 				// update key array if needed
 			else if (delresult!=null && deleteposition>0) 
 			{
-				if (this.owner.Compare(delresult,key)!=0) // !delresult.Equals(key)
+				if (this.owner.Compare(delresult,key, true)!=0) // !delresult.Equals(key)
 				{
 					this.ChildKeys[deleteposition-1] = delresult;
 				} 
@@ -1574,7 +1582,7 @@ namespace BplusDotNet
 			foreach (string thiskey in this.ChildKeys) 
 			{
 				// use comparison, not equals, in case different strings sometimes compare same
-				if (thiskey!=null && this.owner.Compare(thiskey, key)==0) // thiskey.Equals(key)
+				if (thiskey!=null && this.owner.Compare(thiskey, key, true)==0) // thiskey.Equals(key)
 				{
 					found = true;
 					break;
@@ -1626,7 +1634,7 @@ namespace BplusDotNet
 			}
 			splitString = null;
 			splitNode = null;
-			int insertposition = this.FindAtOrNextPosition(key, false);
+			int insertposition = this.FindAtOrNextPosition(key, false, true);
 			long insertBufferNumber = this.ChildBufferNumbers[insertposition];
 			if (insertBufferNumber==BplusTreeLong.NULLBUFFERNUMBER) 
 			{
@@ -1742,7 +1750,7 @@ namespace BplusDotNet
 				throw new BplusTreeException("bad call to InsertLeaf: this is not a leaf");
 			}
 			this.Soil();
-			int insertposition = this.FindAtOrNextPosition(key, false);
+			int insertposition = this.FindAtOrNextPosition(key, false, true);
 			if (insertposition>=this.Size) 
 			{
 				//throw new BplusTreeException("key too big and leaf is full");
@@ -1752,7 +1760,7 @@ namespace BplusDotNet
 			else 
 			{
 				// if it's already there then change the value at the current location (duplicate entries not supported).
-				if (this.ChildKeys[insertposition]==null || this.owner.Compare(this.ChildKeys[insertposition], key)==0) // this.ChildKeys[insertposition].Equals(key)
+				if (this.ChildKeys[insertposition]==null || this.owner.Compare(this.ChildKeys[insertposition], key, true)==0) // this.ChildKeys[insertposition].Equals(key)
 				{
 					this.ChildBufferNumbers[insertposition] = position;
 					this.ChildKeys[insertposition] = key;

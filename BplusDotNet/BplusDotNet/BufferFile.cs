@@ -113,6 +113,7 @@ namespace BplusDotNet
 			// check prefix
 			foreach (byte b in HEADERPREFIX) 
 			{
+                Console.WriteLine("bufferfile: {0} == {1}", header[index], b);
 				if (header[index]!=b) 
 				{
 					throw new BufferFileException("invalid header prefix");

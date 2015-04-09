@@ -7,7 +7,7 @@ namespace BplusDotNet
 	/// implementation also supports an indexing notation this[key] which is not included
 	/// here because of type incompatibilities.
 	/// </summary>
-	public interface ITreeIndex 
+	public interface ITreeIndex
 	{
 		/// <summary>
 		/// Examine the structure and optionally try to reclaim unreachable space.  A structure which was modified without a
@@ -30,20 +30,20 @@ namespace BplusDotNet
 		/// </summary>
 		/// <param name="AfterThisKey">The "lower limit" for the value to return</param>
 		/// <returns>Least key greater than argument or null</returns>
-		string NextKey(string AfterThisKey);
+        string NextKey(string AfterThisKey, bool caseSensitive);
 		/// <summary>
 		/// Return true if the key is present in the structure.
 		/// </summary>
 		/// <param name="key">Key to test</param>
 		/// <returns>true if present, otherwise false.</returns>
-		bool ContainsKey(string key);
+        bool ContainsKey(string key, bool caseSensitive);
 		/// <summary>
 		/// Get the object associated with the key, or return the default if the key is not present.
 		/// </summary>
 		/// <param name="key">key to retrieve.</param>
 		/// <param name="defaultValue">default value to use if absent.</param>
 		/// <returns>the mapped value boxed as an object</returns>
-		object Get(string key, object defaultValue);
+        object Get(string key, object defaultValue, bool caseSensitive);
 		/// <summary>
 		/// map the key to the value in the structure.
 		/// </summary>
@@ -77,29 +77,33 @@ namespace BplusDotNet
 		/// <param name="left"></param>
 		/// <param name="right"></param>
 		/// <returns></returns>
-		int Compare(string left, string right);
+        int Compare(string left, string right, bool caseSensitive);
+       
+       // long MyGetKeyLong(string key, bool caseSensitive);
 	}
 
 	/// <summary>
 	/// A tree which returns byte array values
 	/// </summary>
-	public interface IByteTree : ITreeIndex 
+	public interface IByteTree : ITreeIndex
 	{
 		byte[] this[string key] { get; set; }
+        byte[] MyGetKey(string key, bool caseSensitive);
+        //void MySetKey(string key, byte[] value);
 	}
 	/// <summary>
 	/// A tree which returns byte string
 	/// </summary>
-	public interface IStringTree : ITreeIndex 
+	public interface IStringTree : ITreeIndex
 	{
 		string this[string key] { get; set; }
 	}
 	/// <summary>
 	/// A tree which returns object values
 	/// </summary>
-	public interface IObjectTree : ITreeIndex 
+	public interface IObjectTree : ITreeIndex
 	{
 		object this[string key] { get; set; }
 	}
-
+    
 }

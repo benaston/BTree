@@ -157,7 +157,7 @@ namespace BplusDotNet
 				{
 					sb.Append( " !!!!!!! FAILED TO GET VALUE");
 				}
-				currentkey = this.NextKey(currentkey);
+				currentkey = this.NextKey(currentkey, true);
 			}
 			return sb.ToString();
 		}

@@ -94,19 +94,19 @@ namespace BplusDotNet
 			return this.tree.FirstKey();
 		}
 
-		public string NextKey(string AfterThisKey)
+        public string NextKey(string AfterThisKey, bool caseSensitive)
 		{
-			return this.tree.NextKey(AfterThisKey);
+			return this.tree.NextKey(AfterThisKey, caseSensitive);
 		}
 
-		public bool ContainsKey(string key)
+        public bool ContainsKey(string key, bool caseSensitive)
 		{
-			return this.tree.ContainsKey(key);
+			return this.tree.ContainsKey(key, caseSensitive);
 		}
 
-		public object Get(string key, object defaultValue)
+        public object Get(string key, object defaultValue, bool caseSensitive)
 		{
-			object test = this.tree.Get(key, "");
+			object test = this.tree.Get(key, "", caseSensitive);
 			if (test is byte[]) 
 			{
 				return BytesToString((byte[]) test);
@@ -146,10 +146,10 @@ namespace BplusDotNet
 		{
 			this.tree.Shutdown();
 		}
-		
-		public int Compare(string left, string right) 
+
+        public int Compare(string left, string right, bool caseSensitive) 
 		{
-			return this.tree.Compare(left, right);
+			return this.tree.Compare(left, right, caseSensitive);
 		}
 
 		#endregion
@@ -157,7 +157,7 @@ namespace BplusDotNet
 		{
 			get 
 			{
-				object theGet = this.tree.Get(key, "");
+				object theGet = this.tree.Get(key, "", true);
 				if (theGet is byte[]) 
 				{
 					byte[] bytes = (byte[]) theGet;
